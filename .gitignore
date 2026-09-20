@@ -1,0 +1,24 @@
+# 敏感配置（含密钥，切勿提交）
+.env
+
+# 本地持久化数据（数据库/向量库/模型）
+mysql-data/
+chroma-data/
+models/
+
+# 后端构建产物
+backend/target/
+
+# 前端依赖与构建产物
+frontend/node_modules/
+frontend/dist/
+frontend-react/node_modules/
+frontend-react/dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# 日志
+*.log

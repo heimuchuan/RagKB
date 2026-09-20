@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: campus-knowledge-backend
+  datasource:
+    url: "${DB_URL:jdbc:mysql://localhost:3306/campus_knowledge?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}"
+    username: "${DB_USERNAME:root}"
+    password: "${DB_PASSWORD:373945}"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# 自定义配置（支持环境变量覆盖，便于 Docker 部署）
+campus:
+  jwt:
+    secret: "${JWT_SECRET:change-me-to-a-long-random-secret-key-please-32chars}"
+    expire-hours: 24
+  rag:
+    # Chroma 向量库 REST API 地址
+    chroma-url: "${CHROMA_URL:http://localhost:8000}"
+    chroma-collection: campus_knowledge
+    # BGE-M3 Embedding 服务地址（本地部署或 API）
+    embedding-url: "${EMBEDDING_URL:http://localhost:9997/v1/embeddings}"
+    # 文本分块参数
+    chunk-size: 500
+    chunk-overlap: 50
+    # 检索参数
+    top-k: 8
+    similarity-threshold: 0.55
+  llm:
+    # Qwen / DeepSeek API 地址与密钥
+    api-url: "${LLM_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions}"
+    api-key: "${LLM_API_KEY:your_api_key}"
+    model: "${LLM_MODEL:qwen-plus}"

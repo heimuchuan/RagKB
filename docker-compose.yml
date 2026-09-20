@@ -1,0 +1,77 @@
+# 校园协作知识库 - 全栈 Docker 编排
+#
+# 用法：docker compose up -d --build
+# 停止：docker compose down
+# 可选环境变量（可放到项目根目录 .env 覆盖默认值）：
+#   MYSQL_ROOT_PASSWORD   MySQL root 密码（默认 root123456）
+#   LLM_API_URL / LLM_API_KEY / LLM_MODEL   大模型接口
+#   JWT_SECRET           JWT 签名密钥
+#
+# 首次启动 embedding 会自动从 HuggingFace 下载 BAAI/bge-m3 模型（约 4.5GB），需联网。
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: campus-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: campus_knowledge
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+      # 首次初始化自动执行建库建表脚本（数据卷为空时运行一次）
+      - ./backend/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  chroma:
+    image: chromadb/chroma:0.4.24
+    container_name: campus-chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma-data:/chroma/chroma
+    restart: unless-stopped
+
+  embedding:
+    # CPU 版本；若有 NVIDIA GPU，可替换镜像为
+    #   ghcr.io/huggingface/text-embeddings-inference:1.5
+    # 并追加 GPU 运行时。
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: campus-embedding
+    command: ["--model-id", "BAAI/bge-m3", "--port", "80"]
+    ports:
+      - "9997:80"
+    volumes:
+      - ./models:/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    container_name: campus-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+      embedding:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/campus_knowledge?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      CHROMA_URL: http://chroma:8000
+      EMBEDDING_URL: http://embedding:80/v1/embeddings
+      LLM_API_URL: ${LLM_API_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions}
+      LLM_API_KEY: ${LLM_API_KEY:-your_api_key}
+      LLM_MODEL: ${LLM_MODEL:-qwen-plus}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-key-please-32chars}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
