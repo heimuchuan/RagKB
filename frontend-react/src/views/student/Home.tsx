@@ -13,7 +13,7 @@ import {
 } from '@ant-design/icons'
 import StudentNav from '@/components/StudentNav'
 import Aurora from '@/components/Aurora'
-import { imageUrl } from '@/utils/image'
+import assistantImg from '@/assets/assistant.jpg'
 import {
   ask,
   deleteSession,
@@ -297,13 +297,9 @@ export default function Home() {
             {!messages.length && (
               <div className="text-center mt-10 px-6">
                 <img
-                  src={imageUrl(
-                    '扁平插画，友好的智能问答机器人助手，举着书本，对话气泡，靛蓝紫罗兰柔和渐变，现代简洁可爱',
-                    'square'
-                  )}
+                  src={assistantImg}
                   alt="校园知识助手"
                   className="w-40 h-40 mx-auto rounded-3xl object-cover shadow-lg shadow-indigo-200 mb-5"
-                  onError={(e) => (e.currentTarget.style.display = 'none')}
                 />
                 <div className="text-xl font-semibold text-[#303133] mb-2">
                   你好，我是校园知识助手

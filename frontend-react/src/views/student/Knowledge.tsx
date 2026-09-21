@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons'
 import StudentNav from '@/components/StudentNav'
 import Aurora from '@/components/Aurora'
-import { imageUrl } from '@/utils/image'
+import libraryImg from '@/assets/library.jpg'
 import { getPublicEntries, getEntryDetail } from '@/api/entry'
 import { getCategories } from '@/api/category'
 import { submitCorrection } from '@/api/correction'
@@ -174,15 +174,11 @@ export default function Knowledge() {
                 </button>
               </div>
             </div>
-            <div className="hidden md:block shrink-0">
+            <div className="hidden sm:block shrink-0">
               <img
-                src={imageUrl(
-                  '扁平插画风格校园图书馆，书架旁读书的学生，书本与绿植，靛蓝紫罗兰柔和渐变配色，现代简洁矢量插画',
-                  'square'
-                )}
+                src={libraryImg}
                 alt="校园知识库"
                 className="w-40 h-40 rounded-3xl object-cover shadow-lg"
-                onError={(e) => (e.currentTarget.style.display = 'none')}
               />
             </div>
           </div>

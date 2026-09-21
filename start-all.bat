@@ -1,6 +1,6 @@
 @echo off
 rem Campus Knowledge Base - Local dev launcher (ASCII only to avoid encoding issues)
-rem Starts: MySQL(service) + Chroma(8000) + Embedding(9997) + Backend(8080) + Frontend(5173)
+rem Starts: MySQL(service) + Chroma(8000) + Embedding(9997) + Backend(8080) + Frontend(5174)
 cd /d "%~dp0"
 
 echo ==============================================
@@ -41,14 +41,14 @@ echo [3/4] Embedding BGE-M3 :9997
 start "Embedding" cmd /k "python embedding_server.py"
 
 rem ---------- 5. Start backend and frontend ----------
-echo [4/4] Backend :8080 and Frontend :5173
+echo [4/4] Backend :8080 and Frontend :5174
 start "Backend" cmd /k "mvn -q -f backend\pom.xml spring-boot:run"
-start "Frontend" cmd /k "cd /d frontend && npm run dev"
+start "Frontend" cmd /k "cd /d frontend-react && npm run dev"
 
 echo.
 echo ==============================================
 echo   All services launched in separate windows.
-echo     Frontend  : http://localhost:5173
+echo     Frontend  : http://localhost:5174
 echo     Backend   : http://localhost:8080
 echo     Chroma    : http://localhost:8000
 echo     Embedding : http://localhost:9997
