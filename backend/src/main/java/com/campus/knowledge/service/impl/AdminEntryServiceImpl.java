@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.campus.knowledge.common.BusinessException;
+import com.campus.knowledge.dto.AttachmentDTO;
 import com.campus.knowledge.dto.EntrySubmitRequest;
 import com.campus.knowledge.entity.KnowledgeEntry;
 import com.campus.knowledge.mapper.KnowledgeEntryMapper;
@@ -12,6 +13,8 @@ import com.campus.knowledge.security.UserContext;
 import com.campus.knowledge.service.AdminEntryService;
 import com.campus.knowledge.service.AuditLogService;
 import com.campus.knowledge.service.RagService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,7 @@ public class AdminEntryServiceImpl extends ServiceImpl<KnowledgeEntryMapper, Kno
 
     private final AuditLogService auditLogService;
     private final RagService ragService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public IPage<KnowledgeEntry> pendingList(long current, long size) {
@@ -68,6 +72,7 @@ public class AdminEntryServiceImpl extends ServiceImpl<KnowledgeEntryMapper, Kno
         entry.setSubmitterId(UserContext.getUserId());
         entry.setStatus(1);
         entry.setSourceType(1);
+        entry.setAttachment(toJson(request.getAttachments()));
         entry.setApprovedAt(LocalDateTime.now());
         entry.setViewCount(0);
         save(entry);
@@ -159,5 +164,17 @@ public class AdminEntryServiceImpl extends ServiceImpl<KnowledgeEntryMapper, Kno
         removeById(id);
         // TODO: 同步删除向量库中的记录
         ragService.removeByEntryId(id);
+    }
+
+    /** 附件列表序列化为 JSON 字符串，为空返回 null */
+    private String toJson(List<AttachmentDTO> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(attachments);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 }

@@ -37,7 +37,7 @@ public class QaServiceImpl extends ServiceImpl<QaRecordMapper, QaRecord> impleme
     private final ObjectMapper objectMapper;
 
     @Override
-    public AskVO ask(String question, String sessionId) {
+    public AskVO ask(String question, String sessionId, String imageUrl) {
         // 无会话则新建会话
         boolean newSession = (sessionId == null || sessionId.isBlank());
         if (newSession) {
@@ -47,15 +47,11 @@ public class QaServiceImpl extends ServiceImpl<QaRecordMapper, QaRecord> impleme
         List<SourceRefVO> sources = ragService.search(question);
         List<Map<String, String>> history = buildHistory(sessionId);
 
-        String answer;
-        if (sources == null || sources.isEmpty()) {
-            answer = "暂无相关信息";
-        } else {
-            answer = ragService.answer(question, sources, history);
-        }
+        String answer = ragService.answer(question, sources, history, imageUrl);
 
         QaRecord record = new QaRecord();
         record.setQuestion(question);
+        record.setImageUrl(imageUrl);
         record.setAnswer(answer);
         record.setUserId(UserContext.getUserId());
         record.setSessionId(sessionId);

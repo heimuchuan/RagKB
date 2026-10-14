@@ -5,18 +5,29 @@ import {
   BookOutlined,
   ClockCircleOutlined,
   EyeOutlined,
+  PaperClipOutlined,
   RightOutlined,
   SearchOutlined
 } from '@ant-design/icons'
 import StudentNav from '@/components/StudentNav'
 import Aurora from '@/components/Aurora'
-import libraryImg from '@/assets/library.jpg'
+import { LibraryIllustration } from '@/components/Illustrations'
 import { getPublicEntries, getEntryDetail } from '@/api/entry'
 import { getCategories } from '@/api/category'
 import { submitCorrection } from '@/api/correction'
-import type { Category, Entry } from '@/types'
+import type { Attachment, Category, Entry } from '@/types'
 import { useAuthStore } from '@/store/auth'
 import { formatTime } from '@/utils/format'
+
+function parseAttachments(raw?: string): Attachment[] {
+  if (!raw) return []
+  try {
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
 
 interface CorrectionForm {
   entryId: number
@@ -174,12 +185,8 @@ export default function Knowledge() {
                 </button>
               </div>
             </div>
-            <div className="hidden sm:block shrink-0">
-              <img
-                src={libraryImg}
-                alt="校园知识库"
-                className="w-40 h-40 rounded-3xl object-cover shadow-lg"
-              />
+            <div className="shrink-0">
+              <LibraryIllustration className="w-40 h-40 rounded-3xl shadow-lg" />
             </div>
           </div>
         </div>
@@ -305,6 +312,29 @@ export default function Knowledge() {
               <div className="whitespace-pre-wrap leading-relaxed text-[#303133] max-h-[400px] overflow-auto">
                 {detail.content}
               </div>
+              {parseAttachments(detail.attachment).length > 0 && (
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <div className="text-[13px] font-medium text-[#303133] mb-2">附件</div>
+                  <div className="flex flex-wrap gap-3">
+                    {parseAttachments(detail.attachment).map((a, i) => (
+                      <a
+                        key={i}
+                        href={a.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-100 text-[#7c86d6] text-[13px] hover:bg-indigo-100 transition"
+                      >
+                        {a.type && a.type.startsWith('image/') ? (
+                          <img src={a.url} alt={a.name} className="w-10 h-10 rounded object-cover" />
+                        ) : (
+                          <PaperClipOutlined />
+                        )}
+                        <span className="max-w-[200px] truncate">{a.name || '附件'}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </Modal>

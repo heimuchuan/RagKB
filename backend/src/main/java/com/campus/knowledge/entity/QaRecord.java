@@ -22,6 +22,9 @@ public class QaRecord {
     /** 用户问题 */
     private String question;
 
+    /** 提问图片地址 */
+    private String imageUrl;
+
     /** AI 回答 */
     private String answer;
 

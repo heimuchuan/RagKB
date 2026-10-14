@@ -2,7 +2,11 @@ import request from './request'
 import type { QaAskResult, QaRecord, QaSession } from '@/types'
 
 // 智能问答：POST /qa/ask，返回 { id, answer, sources, sessionId }
-export function ask(data: { question: string; sessionId?: string | null }): Promise<QaAskResult> {
+export function ask(data: {
+  question: string
+  sessionId?: string | null
+  imageUrl?: string | null
+}): Promise<QaAskResult> {
   return request.post('/qa/ask', data)
 }
 

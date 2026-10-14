@@ -3,6 +3,8 @@ package com.campus.knowledge.dto;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * 知识条目提交/编辑请求
  */
@@ -19,4 +21,7 @@ public class EntrySubmitRequest {
     /** 正文内容 */
     @NotBlank(message = "内容不能为空")
     private String content;
+
+    /** 附件列表 */
+    private List<AttachmentDTO> attachments;
 }

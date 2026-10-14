@@ -10,7 +10,7 @@ from sentence_transformers import SentenceTransformer
 app = FastAPI(title="BGE-M3 Embedding Service")
 
 # 加载本地模型（CPU 推理）
-MODEL_PATH = r"D:\自己写项目\campus-knowledge-base\models\models\BAAI--bge-m3\snapshots\master"
+MODEL_PATH = r"D:\自己写项目\RagKB\models\models\BAAI--bge-m3\snapshots\master"
 model = SentenceTransformer(MODEL_PATH)
 
 

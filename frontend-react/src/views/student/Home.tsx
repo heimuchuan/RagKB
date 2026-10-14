@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Divider, Input, Modal, Tag, message } from 'antd'
+import { Button, Input, Modal, Tag, Upload, message } from 'antd'
 import {
-  DeleteOutlined,
-  DislikeOutlined,
-  EditOutlined,
-  LikeOutlined,
-  PlusOutlined,
-  RobotOutlined,
-  SendOutlined,
-  UserOutlined
-} from '@ant-design/icons'
+  ArrowUp,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Paperclip,
+  Pencil,
+  Plus,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2
+} from 'lucide-react'
 import StudentNav from '@/components/StudentNav'
-import Aurora from '@/components/Aurora'
-import assistantImg from '@/assets/assistant.jpg'
 import {
   ask,
   deleteSession,
@@ -22,6 +21,7 @@ import {
   getSessionMessages,
   renameSession
 } from '@/api/qa'
+import { uploadFile } from '@/api/file'
 import type { QaSession, QaSource } from '@/types'
 import { useAuthStore } from '@/store/auth'
 import { confirmModal } from '@/utils/confirm'
@@ -32,6 +32,7 @@ interface UiMessage {
   sources?: QaSource[]
   recordId?: number
   feedback?: number
+  imageUrl?: string
 }
 
 const suggestions = [
@@ -66,7 +67,9 @@ export default function Home() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<UiMessage[]>([])
   const [input, setInput] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const [renameTarget, setRenameTarget] = useState<QaSession | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -99,6 +102,7 @@ export default function Home() {
     setCurrentSessionId(null)
     setMessages([])
     setInput('')
+    setImageUrl(null)
   }
 
   const openSession = async (sessionId: string) => {
@@ -108,7 +112,7 @@ export default function Home() {
       const records = (await getSessionMessages(sessionId)) || []
       const list: UiMessage[] = []
       for (const r of records) {
-        list.push({ role: 'user', content: r.question })
+        list.push({ role: 'user', content: r.question, imageUrl: r.imageUrl })
         list.push({
           role: 'assistant',
           content: r.answer,
@@ -165,7 +169,8 @@ export default function Home() {
 
   const send = async () => {
     const q = input.trim()
-    if (!q) {
+    const img = imageUrl
+    if (!q && !img) {
       message.warning('请输入问题')
       return
     }
@@ -174,11 +179,16 @@ export default function Home() {
       navigate('/login')
       return
     }
-    setMessages((prev) => [...prev, { role: 'user', content: q }])
+    setMessages((prev) => [...prev, { role: 'user', content: q, imageUrl: img || undefined }])
     setInput('')
+    setImageUrl(null)
     setLoading(true)
     try {
-      const res = await ask({ question: q, sessionId: currentSessionId })
+      const res = await ask({
+        question: q || '请识别这张图片',
+        sessionId: currentSessionId,
+        imageUrl: img
+      })
       setCurrentSessionId(res.sessionId || currentSessionId)
       setMessages((prev) => [
         ...prev,
@@ -228,209 +238,268 @@ export default function Home() {
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-indigo-50 via-slate-50 to-violet-50 overflow-hidden">
-      <Aurora />
-      <div className="relative z-10">
+    <div className="h-screen flex flex-col bg-[#f7f7f8]">
       <StudentNav />
-      <div className="max-w-[1160px] mx-auto my-5 px-4 flex gap-5 h-[calc(100vh-96px)]">
-        {/* 会话列表侧栏 */}
-        <aside className="w-[260px] shrink-0 bg-white/70 backdrop-blur-xl rounded-2xl p-4 flex flex-col shadow-sm border border-indigo-50">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-sm">
-              知
+      <div className="flex-1 flex overflow-hidden">
+        {/* 左侧会话栏 */}
+        {sidebarOpen ? (
+          <aside className="w-[260px] shrink-0 bg-white border-r border-[#e5e5e5] flex flex-col">
+            <div className="flex items-center justify-between px-3 pt-3 pb-1">
+              <span className="text-[13px] text-[#666]">会话</span>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="h-7 w-7 rounded-md hover:bg-[#f4f4f5] text-[#666] flex items-center justify-center"
+                title="收起侧栏"
+              >
+                <PanelLeftClose size={16} />
+              </button>
             </div>
-            <span className="font-semibold text-[#303133]">我的对话</span>
-          </div>
-
-          <button
-            onClick={newChat}
-            className="h-11 mb-3 rounded-xl text-white text-sm font-medium bg-gradient-to-r from-indigo-400 to-violet-500 hover:opacity-90 transition flex items-center justify-center gap-1.5 shadow-sm"
-          >
-            <PlusOutlined /> 新建对话
-          </button>
-
-          <div className="flex-1 overflow-auto -mx-1 px-1">
-            {sessions.map((s) => (
-              <div
-                key={s.sessionId}
-                className={`relative pl-3 pr-8 py-2.5 rounded-xl cursor-pointer mb-1 group border-l-[3px] transition ${
-                  s.sessionId === currentSessionId
-                    ? 'bg-indigo-50/70 border-indigo-400'
-                    : 'border-transparent hover:bg-slate-50'
-                }`}
-                onClick={() => openSession(s.sessionId)}
+            <div className="px-3 pb-3">
+              <button
+                onClick={newChat}
+                className="w-full h-9 rounded-lg bg-[#4d6bfe] hover:bg-[#3a55e0] text-white text-sm flex items-center justify-center gap-1.5 transition"
               >
-                <div className="text-sm text-[#303133] truncate">
-                  {s.title || '未命名对话'}
-                </div>
-                <div className="text-xs text-[#909399] mt-1">{formatTime(s.lastTime)}</div>
-                <div className="absolute top-2 right-2 hidden group-hover:flex gap-2 items-center">
-                  <EditOutlined
-                    className="text-[#909399] hover:text-[#7c86d6]"
-                    title="重命名"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setRenameValue(s.title || '未命名对话')
-                      setRenameTarget(s)
-                    }}
-                  />
-                  <DeleteOutlined
-                    className="text-[#f56c6c]"
-                    title="删除会话"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeSession(s)
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-            {!sessions.length && (
-              <div className="text-[13px] text-[#c0c4cc] text-center mt-5">暂无历史对话</div>
-            )}
-          </div>
-        </aside>
-
-        {/* 对话区 */}
-        <main className="flex-1 flex flex-col bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-indigo-50 overflow-hidden">
-          <div ref={chatBoxRef} className="flex-1 overflow-auto p-6">
-            {!messages.length && (
-              <div className="text-center mt-10 px-6">
-                <img
-                  src={assistantImg}
-                  alt="校园知识助手"
-                  className="w-40 h-40 mx-auto rounded-3xl object-cover shadow-lg shadow-indigo-200 mb-5"
-                />
-                <div className="text-xl font-semibold text-[#303133] mb-2">
-                  你好，我是校园知识助手
-                </div>
-                <div className="text-sm text-[#909399] mb-6">
-                  关于校园规章制度、学习生活、设施服务的问题，都可以问我
-                </div>
-                <div className="flex flex-wrap justify-center gap-2.5 max-w-[560px] mx-auto">
-                  {suggestions.map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => setInput(q)}
-                      className="px-3.5 py-2 rounded-full text-[13px] text-[#7c86d6] bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {messages.map((m, idx) => (
-              <div
-                key={idx}
-                className={`flex mb-5 gap-3 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-              >
-                {/* 头像 */}
+                <Plus size={16} /> 新对话
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 pb-2">
+              {sessions.map((s) => (
                 <div
-                  className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center text-white text-sm shadow-sm ${
-                    m.role === 'user'
-                      ? 'bg-gradient-to-br from-slate-400 to-slate-600'
-                      : 'bg-gradient-to-br from-indigo-400 to-violet-500'
+                  key={s.sessionId}
+                  className={`relative pl-3 pr-8 py-2.5 rounded-lg cursor-pointer mb-0.5 group transition ${
+                    s.sessionId === currentSessionId ? 'bg-[#eef1ff]' : 'hover:bg-[#f4f4f5]'
                   }`}
+                  onClick={() => openSession(s.sessionId)}
                 >
-                  {m.role === 'user' ? <UserOutlined /> : <RobotOutlined />}
+                  <div className="text-sm text-[#1f2329] truncate">
+                    {s.title || '未命名对话'}
+                  </div>
+                  <div className="text-xs text-[#999] mt-0.5">{formatTime(s.lastTime)}</div>
+                  <div className="absolute top-2 right-2 hidden group-hover:flex gap-1.5 items-center">
+                    <Pencil
+                      size={14}
+                      className="text-[#999] hover:text-[#4d6bfe]"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setRenameValue(s.title || '未命名对话')
+                        setRenameTarget(s)
+                      }}
+                    />
+                    <Trash2
+                      size={14}
+                      className="text-[#f56c6c]"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeSession(s)
+                      }}
+                    />
+                  </div>
                 </div>
+              ))}
+              {!sessions.length && (
+                <div className="text-[13px] text-[#c0c4cc] text-center mt-5">暂无历史对话</div>
+              )}
+            </div>
+          </aside>
+        ) : (
+          <aside className="w-11 shrink-0 bg-white border-r border-[#e5e5e5] flex flex-col items-center py-3 gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="h-8 w-8 rounded-md hover:bg-[#f4f4f5] text-[#666] flex items-center justify-center"
+              title="展开侧栏"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+            <button
+              onClick={newChat}
+              className="h-8 w-8 rounded-md hover:bg-[#f4f4f5] text-[#4d6bfe] flex items-center justify-center"
+              title="新对话"
+            >
+              <Plus size={16} />
+            </button>
+          </aside>
+        )}
 
-                <div
-                  className={`max-w-[78%] px-4 py-3 text-sm leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-gradient-to-br from-indigo-400 to-violet-500 text-white rounded-2xl rounded-tr-md shadow-sm'
-                      : 'bg-white text-[#303133] rounded-2xl rounded-tl-md border border-indigo-50 shadow-sm'
-                  }`}
-                >
-                  <div className="whitespace-pre-wrap">{m.content}</div>
-
-                  {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
-                    <>
-                      <Divider orientation="left" className="!my-2.5">
-                        <span className="text-xs text-[#909399] font-normal">引用来源</span>
-                      </Divider>
-                      <div className="space-y-2">
-                        {m.sources.map((s, si) => (
-                          <div
-                            key={si}
-                            className="p-2.5 rounded-lg bg-indigo-50/60 border border-indigo-50"
-                          >
-                            <div className="text-[13px] font-semibold text-[#7c86d6]">
-                              <span className="text-[#909399]">[{si + 1}]</span> {s.title}
-                              <Tag
-                                color={s.sourceType === 1 ? 'green' : 'orange'}
-                                className="ml-1.5"
-                              >
-                                {s.sourceType === 1 ? '官方' : '同学经验'}
-                              </Tag>
-                            </div>
-                            <div className="mt-1 text-xs text-[#909399] leading-relaxed">
-                              {s.content}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  {m.role === 'assistant' && m.recordId && (
-                    <div className="mt-3 flex items-center gap-1.5">
-                      <span className="text-xs text-[#909399] mr-1">有帮助吗？</span>
-                      <Button
-                        size="small"
-                        type="text"
-                        className="!text-[#7c86d6]"
-                        onClick={() => handleLike(m)}
+        {/* 对话主区 */}
+        <main className="flex-1 flex flex-col bg-white min-w-0">
+          <div ref={chatBoxRef} className="flex-1 overflow-y-auto">
+            <div className="max-w-[820px] mx-auto px-5 pb-6">
+              {!messages.length && (
+                <div className="flex flex-col items-center justify-center pt-24 pb-10 text-center">
+                  <div className="text-2xl font-semibold text-[#1f2329] mb-3">
+                    你好，我是校园知识助手
+                  </div>
+                  <div className="text-[15px] text-[#666] mb-8">
+                    关于校园规章制度、学习生活、设施服务的问题，都可以问我
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2.5 max-w-[560px]">
+                    {suggestions.map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => setInput(q)}
+                        className="px-4 py-2 rounded-full text-[13px] text-[#4d6bfe] bg-[#eef1ff] hover:bg-[#e0e5ff] transition"
                       >
-                        <LikeOutlined className={m.feedback === 1 ? 'text-[#7c86d6]' : ''} /> 有用
-                      </Button>
-                      <Button size="small" type="text" danger onClick={() => openDislike(m)}>
-                        <DislikeOutlined /> 没用
-                      </Button>
-                    </div>
-                  )}
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )}
 
-            {loading && (
-              <div className="flex gap-3 mb-5">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-sm shadow-sm">
-                  <RobotOutlined />
+              {messages.map((m, idx) =>
+                m.role === 'user' ? (
+                  <div key={idx} className="flex justify-end mb-7">
+                    <div className="max-w-[85%] min-w-0 flex flex-col items-end">
+                      {m.imageUrl && (
+                        <img
+                          src={m.imageUrl}
+                          alt="提问图片"
+                          className="mb-2 rounded-lg max-w-[220px] max-h-[180px] object-cover"
+                        />
+                      )}
+                      <div className="px-4 py-2.5 text-sm leading-relaxed bg-[#f4f4f5] text-[#1f2329] rounded-2xl rounded-tr-sm">
+                        <span className="whitespace-pre-wrap">{m.content}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={idx} className="flex mb-7 gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-[#1f2329] shrink-0 mt-0.5" />
+                    <div className="max-w-[85%] min-w-0">
+                      <div className="text-sm leading-relaxed text-[#1f2329] whitespace-pre-wrap">
+                        {m.content}
+                      </div>
+
+                      {m.sources && m.sources.length > 0 && (
+                        <div className="mt-3">
+                          <div className="text-xs text-[#999] mb-2">引用来源</div>
+                          <div className="space-y-2">
+                            {m.sources.map((s, si) => (
+                              <div
+                                key={si}
+                                className="p-3 rounded-lg bg-[#f7f7f8] border border-[#eee]"
+                              >
+                                <div className="text-[13px] font-medium text-[#1f2329]">
+                                  <span className="text-[#999]">[{si + 1}]</span> {s.title}
+                                  <Tag
+                                    color={s.sourceType === 1 ? 'green' : 'orange'}
+                                    className="ml-1.5"
+                                  >
+                                    {s.sourceType === 1 ? '官方' : '同学经验'}
+                                  </Tag>
+                                </div>
+                                <div className="mt-1 text-xs text-[#666] leading-relaxed">
+                                  {s.content}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {m.recordId && (
+                        <div className="mt-3 flex items-center gap-1.5">
+                          <span className="text-xs text-[#999] mr-1">有帮助吗？</span>
+                          <Button
+                            size="small"
+                            type="text"
+                            className="!text-[#666] hover:!text-[#4d6bfe]"
+                            onClick={() => handleLike(m)}
+                          >
+                            <ThumbsUp size={14} className={m.feedback === 1 ? 'text-[#4d6bfe]' : ''} /> 有用
+                          </Button>
+                          <Button size="small" type="text" danger onClick={() => openDislike(m)}>
+                            <ThumbsDown size={14} /> 没用
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              )}
+
+              {loading && (
+                <div className="flex gap-3 mb-7">
+                  <div className="w-7 h-7 rounded-lg bg-[#1f2329] shrink-0 mt-0.5" />
+                  <div className="px-1 py-1.5 text-sm text-[#999]">正在思考…</div>
                 </div>
-                <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-white border border-indigo-50 text-[#909399] text-sm shadow-sm">
-                  正在思考…
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* 输入区 */}
-          <div className="flex gap-3 p-4 border-t border-indigo-50 bg-white/60 items-end">
-            <Input.TextArea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="请输入你的问题，例如：如何办理校园卡挂失？可连续追问"
-              autoSize={{ minRows: 2, maxRows: 6 }}
-              maxLength={500}
-              showCount
-              onPressEnter={(e) => {
-                e.preventDefault()
-                send()
-              }}
-              className="flex-1 !rounded-xl"
-            />
-            <Button
-              type="primary"
-              icon={<SendOutlined />}
-              loading={loading}
-              onClick={send}
-              className="!h-11 !rounded-xl !px-5"
-            >
-              发送
-            </Button>
+          <div className="border-t border-[#f0f0f0] bg-white">
+            <div className="max-w-[820px] mx-auto px-5 py-4">
+              {imageUrl && (
+                <div className="flex items-center gap-3 mb-3">
+                  <img
+                    src={imageUrl}
+                    alt="待发送图片预览"
+                    className="w-14 h-14 rounded-lg object-cover border border-[#eee]"
+                  />
+                  <Button
+                    size="small"
+                    type="text"
+                    danger
+                    icon={<Trash2 size={14} />}
+                    onClick={() => setImageUrl(null)}
+                  >
+                    移除图片
+                  </Button>
+                </div>
+              )}
+              <div className="rounded-2xl border border-[#e5e5e5] bg-white shadow-sm focus-within:border-[#4d6bfe] transition">
+                <Input.TextArea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="发消息，或上传图片提问…"
+                  autoSize={{ minRows: 2, maxRows: 6 }}
+                  maxLength={500}
+                  bordered={false}
+                  className="!px-4 !pt-3 !pb-1"
+                  onPressEnter={(e) => {
+                    e.preventDefault()
+                    send()
+                  }}
+                />
+                <div className="flex items-center justify-between px-3 pb-2.5">
+                  <Upload
+                    accept="image/*"
+                    showUploadList={false}
+                    customRequest={async (options) => {
+                      try {
+                        const res = await uploadFile(options.file as File)
+                        setImageUrl(res.url)
+                        options.onSuccess?.(res)
+                        message.success('图片已添加，可发送提问')
+                      } catch (e) {
+                        options.onError?.(e as Error)
+                        message.error('图片上传失败')
+                      }
+                    }}
+                  >
+                    <Button
+                      type="text"
+                      icon={<Paperclip size={16} />}
+                      title="上传图片"
+                      className="!text-[#999] hover:!text-[#1f2329] !h-8 !px-2"
+                    />
+                  </Upload>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="primary"
+                      icon={<ArrowUp size={16} strokeWidth={2.5} />}
+                      loading={loading}
+                      onClick={send}
+                      className="!bg-[#4d6bfe] hover:!bg-[#3a55e0] !h-9 !w-9 !rounded-full !flex !items-center !justify-center"
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="text-center text-xs text-[#c0c4cc] mt-2">
+                内容由 AI 生成，请结合参考资料甄别
+              </p>
+            </div>
           </div>
         </main>
       </div>
@@ -468,7 +537,6 @@ export default function Home() {
           placeholder="请描述回答存在的问题"
         />
       </Modal>
-      </div>
     </div>
   )
 }

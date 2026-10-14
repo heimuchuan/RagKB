@@ -38,7 +38,7 @@ public class QaController {
      */
     @PostMapping("/ask")
     public Result<AskVO> ask(@Valid @RequestBody AskRequest request) {
-        return Result.ok(qaService.ask(request.getQuestion(), request.getSessionId()));
+        return Result.ok(qaService.ask(request.getQuestion(), request.getSessionId(), request.getImageUrl()));
     }
 
     /**

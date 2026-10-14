@@ -5,13 +5,18 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.campus.knowledge.common.BusinessException;
+import com.campus.knowledge.dto.AttachmentDTO;
 import com.campus.knowledge.dto.EntrySubmitRequest;
 import com.campus.knowledge.entity.KnowledgeEntry;
 import com.campus.knowledge.mapper.KnowledgeEntryMapper;
 import com.campus.knowledge.security.UserContext;
 import com.campus.knowledge.service.KnowledgeEntryService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * 知识条目服务实现（学生端）
@@ -21,6 +26,8 @@ import org.springframework.stereotype.Service;
 public class KnowledgeEntryServiceImpl extends ServiceImpl<KnowledgeEntryMapper, KnowledgeEntry>
         implements KnowledgeEntryService {
 
+    private final ObjectMapper objectMapper;
+
     @Override
     public Long submit(EntrySubmitRequest request) {
         KnowledgeEntry entry = new KnowledgeEntry();
@@ -28,6 +35,10 @@ public class KnowledgeEntryServiceImpl extends ServiceImpl<KnowledgeEntryMapper,
         entry.setCategoryId(request.getCategoryId());
         entry.setContent(request.getContent());
         entry.setSubmitterId(UserContext.getUserId());
+        // 自动判定来源：普通账号（学生 role=0）→ 同学经验；管理员/信任账号 → 官方
+        Integer role = UserContext.getRole();
+        entry.setSourceType(role != null && role > 0 ? 1 : 0);
+        entry.setAttachment(toJson(request.getAttachments()));
         entry.setStatus(0);
         entry.setViewCount(0);
         save(entry);
@@ -115,5 +126,17 @@ public class KnowledgeEntryServiceImpl extends ServiceImpl<KnowledgeEntryMapper,
         //  后续可新增 feedback 表细化点赞/点踩统计。
         entry.setViewCount((entry.getViewCount() == null ? 0 : entry.getViewCount()) + 1);
         updateById(entry);
+    }
+
+    /** 附件列表序列化为 JSON 字符串，为空返回 null */
+    private String toJson(List<AttachmentDTO> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(attachments);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 }

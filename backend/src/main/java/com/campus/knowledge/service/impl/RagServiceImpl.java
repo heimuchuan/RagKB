@@ -16,11 +16,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -66,6 +71,18 @@ public class RagServiceImpl implements RagService {
 
     @Value("${campus.llm.model:qwen-plus}")
     private String llmModel;
+
+    @Value("${campus.vision.api-url:}")
+    private String visionApiUrl;
+
+    @Value("${campus.vision.api-key:}")
+    private String visionApiKey;
+
+    @Value("${campus.vision.model:qwen-vl-plus}")
+    private String visionModel;
+
+    @Value("${campus.upload.dir:uploads}")
+    private String uploadDir;
 
     /** 官方内容独立集合名后缀 */
     private static final String OFFICIAL_SUFFIX = "_official";
@@ -378,38 +395,36 @@ public class RagServiceImpl implements RagService {
     }
 
     @Override
-    public String answer(String question, List<SourceRefVO> sources, List<Map<String, String>> history) {
-        if (sources == null || sources.isEmpty()) {
+    public String answer(String question, List<SourceRefVO> sources, List<Map<String, String>> history, String imageUrl) {
+        boolean hasImage = imageUrl != null && !imageUrl.isBlank();
+        if (!hasImage && (sources == null || sources.isEmpty())) {
             return "暂无相关信息";
         }
-        String systemMessage = "你是「校园知识助手」，一个熟悉校园规章制度、学习生活与设施服务的智能助手。"
-                + "你的任务是根据下方参考资料，用友好、清晰、有条理的语言回答学生的疑问。\n"
-                + "回答要求：\n"
-                + "1. 先直接回答用户最关心的核心结论，不要绕弯子；\n"
-                + "2. 再补充必要的细节（如时间、金额、条件、流程、联系方式等）；\n"
-                + "3. 如果涉及多个相关条目，请自然地整合，而不是逐条罗列原文；\n"
-                + "4. 全程只依据参考资料，资料没有的信息一律不要编造；如果资料确实无法回答，请明确说「根据现有资料暂时无法回答」；\n"
-                + "5. 语气自然亲切，像一位耐心的学长学姐在解答；\n"
-                + "6. 资料会标注来源（官方或同学经验），官方内容可信度更高，请优先采纳并在引用时注意区分。\n"
-                + "另外，若对话存在历史，请结合上下文理解当前问题时可能出现的指代（如「它」「那个」），回答时保持上下文连贯。";
-        String userMessage = buildPrompt(question, sources);
 
-        // OpenAI 兼容格式调用 LLM（多轮：system + 历史 + 当前用户消息）
+        // 无独立视觉配置时回退到文本模型（多模态会因模型不支持而失败）
+        String apiUrl = hasImage && visionApiUrl != null && !visionApiUrl.isBlank() ? visionApiUrl : llmApiUrl;
+        String apiKey = hasImage && visionApiKey != null && !visionApiKey.isBlank() ? visionApiKey : llmApiKey;
+        String model = hasImage && visionApiUrl != null && !visionApiUrl.isBlank() ? visionModel : llmModel;
+
         Map<String, Object> body = new HashMap<>();
-        body.put("model", llmModel);
-        List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", systemMessage));
+        body.put("model", model);
+        List<Map<String, Object>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", buildSystemMessage(hasImage)));
         if (history != null) {
-            messages.addAll(history);
+            for (Map<String, String> h : history) {
+                messages.add(new HashMap<>(h));
+            }
         }
-        messages.add(Map.of("role", "user", "content", userMessage));
+        // 视觉模型在公网无法访问本地 /files 地址，需将其转成 base64 data URL
+        String resolvedImage = hasImage ? resolveImageToDataUrl(imageUrl) : imageUrl;
+        messages.add(buildUserMessage(buildPrompt(question, sources), resolvedImage));
         body.put("messages", messages);
-        body.put("temperature", 0.6);
+        body.put("temperature", hasImage ? 0.4 : 0.6);
 
         Map<String, String> headers = new HashMap<>();
-        headers.put("Authorization", "Bearer " + llmApiKey);
+        headers.put("Authorization", "Bearer " + apiKey);
         try {
-            JsonNode resp = postJson(llmApiUrl, body, headers);
+            JsonNode resp = postJson(apiUrl, body, headers);
             String content = resp == null ? null
                     : resp.path("choices").path(0).path("message").path("content").asText(null);
             if (content == null || content.isBlank()) {
@@ -419,9 +434,82 @@ public class RagServiceImpl implements RagService {
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("调用大模型失败 url={}", llmApiUrl, e);
+            log.error("调用大模型失败 url={}", apiUrl, e);
             throw new BusinessException("AI 服务暂不可用");
         }
+    }
+
+    /** 构造 system 消息；带图片时补充多模态理解说明 */
+    private String buildSystemMessage(boolean hasImage) {
+        String base = "你是「校园知识助手」，一个熟悉校园规章制度、学习生活与设施服务的智能助手。"
+                + "你的任务是根据下方参考资料，用友好、清晰、有条理的语言回答学生的疑问。\n"
+                + "回答要求：\n"
+                + "1. 先直接回答用户最关心的核心结论，不要绕弯子；\n"
+                + "2. 再补充必要的细节（如时间、金额、条件、流程、联系方式等）；\n"
+                + "3. 如果涉及多个相关条目，请自然地整合，而不是逐条罗列原文；\n"
+                + "4. 全程只依据参考资料，资料没有的信息一律不要编造；如果资料确实无法回答，请明确说「根据现有资料暂时无法回答」；\n"
+                + "5. 语气自然亲切，像一位耐心的学长学姐在解答；\n"
+                + "6. 资料会标注来源（官方或同学经验），官方内容可信度更高，请优先采纳并在引用时注意区分。\n"
+                + "另外，若对话存在历史，请结合上下文理解当前问题时可能出现的指代（如「它」「那个」），回答时保持上下文连贯。";
+        if (hasImage) {
+            base += "\n本次用户附带了一张图片，请仔细观察图片内容，结合图片与参考资料共同回答；如果图片与问题相关但资料缺失，可基于图片内容作答。";
+        }
+        return base;
+    }
+
+    /** 构造当前用户消息；带图片时使用 OpenAI 兼容的多模态 content 结构 */
+    private Map<String, Object> buildUserMessage(String text, String imageUrl) {
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("role", "user");
+        if (imageUrl == null || imageUrl.isBlank()) {
+            msg.put("content", text);
+        } else {
+            List<Map<String, Object>> content = new ArrayList<>();
+            Map<String, Object> textPart = new HashMap<>();
+            textPart.put("type", "text");
+            textPart.put("text", text);
+            content.add(textPart);
+            Map<String, Object> imagePart = new HashMap<>();
+            imagePart.put("type", "image_url");
+            Map<String, Object> imageUrlObj = new HashMap<>();
+            imageUrlObj.put("url", imageUrl);
+            imagePart.put("image_url", imageUrlObj);
+            content.add(imagePart);
+            msg.put("content", content);
+        }
+        return msg;
+    }
+
+    /**
+     * 将本地文件相对地址（/files/{name}）读成 base64 data URL，供视觉模型直接识别。
+     * 非本地路径或读取失败时原样返回。
+     */
+    private String resolveImageToDataUrl(String imageUrl) {
+        try {
+            String name = imageUrl.startsWith("/files/") ? imageUrl.substring("/files/".length()) : imageUrl;
+            Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
+            Path target = root.resolve(name).normalize();
+            if (!target.startsWith(root) || !Files.exists(target)) {
+                return imageUrl;
+            }
+            byte[] bytes = Files.readAllBytes(target);
+            String mime = contentTypeOf(target.getFileName() == null ? "" : target.getFileName().toString());
+            return "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception e) {
+            log.warn("图片转 base64 失败，回退使用原始地址：{}", e.getMessage());
+            return imageUrl;
+        }
+    }
+
+    /** 按扩展名推断 MIME，用于拼接 data URL */
+    private String contentTypeOf(String name) {
+        String lower = name.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".gif")) return "image/gif";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".svg")) return "image/svg+xml";
+        return "image/png";
     }
 
     @Override
@@ -485,6 +573,9 @@ public class RagServiceImpl implements RagService {
      * 拼接 Prompt（需求文档 6.3）：系统提示为条目检索预设，参考资料 + 用户问题作为用户消息
      */
     private String buildPrompt(String question, List<SourceRefVO> sources) {
+        if (sources == null || sources.isEmpty()) {
+            return "用户的问题：" + question + "\n\n请结合用户提供的图片（如有）作答，不要编造。";
+        }
         StringBuilder sb = new StringBuilder();
         sb.append("以下是知识库中检索到的参考资料（每条标注了编号），请优先依据这些内容回答：\n");
         for (int i = 0; i < sources.size(); i++) {

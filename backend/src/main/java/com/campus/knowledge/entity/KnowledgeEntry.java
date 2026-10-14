@@ -25,6 +25,9 @@ public class KnowledgeEntry {
     /** 正文内容 */
     private String content;
 
+    /** 附件列表（JSON 字符串：[{name,url,type,size}]） */
+    private String attachment;
+
     /** 所属分类ID（→ category.id） */
     private Long categoryId;
 

@@ -16,7 +16,7 @@ public interface QaService {
      * 智能问答（RAG 检索 + LLM 生成）
      * sessionId 为空时新建会话
      */
-    AskVO ask(String question, String sessionId);
+    AskVO ask(String question, String sessionId, String imageUrl);
 
     /**
      * 获取当前用户的问答历史（分页）

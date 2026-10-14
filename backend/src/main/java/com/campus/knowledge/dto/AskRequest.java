@@ -15,4 +15,7 @@ public class AskRequest {
 
     /** 会话ID（多轮对话；为空则新建会话） */
     private String sessionId;
+
+    /** 提问附带的图片地址（可选，多模态） */
+    private String imageUrl;
 }

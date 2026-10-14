@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, DatePicker, Form, Input, Modal, Select, Table, Tag, message } from 'antd'
+import { Button, Card, DatePicker, Form, Input, Modal, Select, Table, Tag, Upload, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import type { UploadFile } from 'antd'
+import { UploadOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import AdminNav from '@/components/AdminNav'
 import Aurora from '@/components/Aurora'
 import { getAllEntries, editEntry, deleteEntry, createOfficialEntry } from '@/api/admin'
 import { getCategories } from '@/api/category'
-import type { Category, Entry } from '@/types'
+import { uploadFile } from '@/api/file'
+import type { Attachment, Category, Entry } from '@/types'
 import { formatTime } from '@/utils/format'
 import { confirmModal } from '@/utils/confirm'
 
@@ -47,6 +50,7 @@ export default function Entries() {
   const [officialVisible, setOfficialVisible] = useState(false)
   const [officialLoading, setOfficialLoading] = useState(false)
   const [officialForm] = Form.useForm<OfficialForm>()
+  const [officialFiles, setOfficialFiles] = useState<UploadFile[]>([])
 
   const categoryName = (id: number | null | undefined) => {
     const c = categories.find((x) => x.id === id)
@@ -135,17 +139,22 @@ export default function Entries() {
 
   const openOfficial = () => {
     officialForm.resetFields()
+    setOfficialFiles([])
     setOfficialVisible(true)
   }
 
   const handleOfficialSubmit = async () => {
     const values = await officialForm.validateFields()
+    const attachments = officialFiles
+      .filter((f) => f.status === 'done' && f.response)
+      .map((f) => f.response as Attachment)
     setOfficialLoading(true)
     try {
       await createOfficialEntry({
         title: values.title,
         categoryId: values.categoryId,
-        content: values.content
+        content: values.content,
+        attachments
       })
       message.success('已发布官方条目')
       setOfficialVisible(false)
@@ -343,6 +352,23 @@ export default function Entries() {
               rules={[{ required: true, message: '请输入正文内容' }]}
             >
               <Input.TextArea rows={8} />
+            </Form.Item>
+            <Form.Item label="附件">
+              <Upload
+                fileList={officialFiles}
+                multiple
+                customRequest={async (options) => {
+                  try {
+                    const res = await uploadFile(options.file as File)
+                    options.onSuccess?.(res)
+                  } catch (e) {
+                    options.onError?.(e as Error)
+                  }
+                }}
+                onChange={({ fileList: fl }) => setOfficialFiles(fl)}
+              >
+                <Button icon={<UploadOutlined />}>上传附件</Button>
+              </Upload>
             </Form.Item>
           </Form>
         </Modal>

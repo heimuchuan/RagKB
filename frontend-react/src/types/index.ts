@@ -32,6 +32,16 @@ export interface Entry {
   approvedAt?: string
   createdAt?: string
   rejectReason?: string
+  /** 附件列表（后端返回 JSON 字符串） */
+  attachment?: string
+}
+
+/** 上传后返回的附件元数据 */
+export interface Attachment {
+  url: string
+  name: string
+  type?: string
+  size?: number
 }
 
 export interface Correction {
@@ -70,6 +80,8 @@ export interface QaRecord {
   answer: string
   sources: QaSource[] | string
   feedback?: number
+  /** 提问附带的图片地址 */
+  imageUrl?: string
 }
 
 export interface AdminUser {

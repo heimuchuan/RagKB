@@ -1,19 +1,10 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Button, Menu } from 'antd'
+import { Link, useNavigate } from 'react-router-dom'
+import { Button, Dropdown } from 'antd'
+import { Settings } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { confirmModal } from '@/utils/confirm'
 
-const menuItems = [
-  { key: '/', label: <Link to="/">首页问答</Link> },
-  { key: '/knowledge', label: <Link to="/knowledge">知识库</Link> },
-  { key: '/submit', label: <Link to="/submit">提交信息</Link> },
-  { key: '/my-submissions', label: <Link to="/my-submissions">我的提交</Link> },
-  { key: '/my-corrections', label: <Link to="/my-corrections">我的纠错</Link> },
-  { key: '/profile', label: <Link to="/profile">个人中心</Link> }
-]
-
 export default function StudentNav() {
-  const location = useLocation()
   const navigate = useNavigate()
   const userInfo = useAuthStore((s) => s.userInfo)
   const logout = useAuthStore((s) => s.logout)
@@ -28,36 +19,59 @@ export default function StudentNav() {
     navigate('/login')
   }
 
+  const menuItems = [
+    { key: '/', label: '首页问答' },
+    { key: '/knowledge', label: '知识库' },
+    { key: '/submit', label: '提交信息' },
+    { key: '/my-submissions', label: '我的提交' },
+    { key: '/my-corrections', label: '我的纠错' },
+    { key: '/profile', label: '个人中心' },
+    { type: 'divider' as const },
+    ...(userInfo
+      ? [{ key: 'logout', label: '退出登录', danger: true }]
+      : [{ key: 'login', label: '登录' }])
+  ]
+
+  const onMenuClick = ({ key }: { key: string }) => {
+    if (key === 'logout') {
+      handleLogout()
+    } else if (key === 'login') {
+      navigate('/login')
+    } else {
+      navigate(key)
+    }
+  }
+
   return (
-    <div className="bg-white/70 backdrop-blur-xl border-b border-indigo-50">
-      <div className="max-w-[1200px] mx-auto flex items-center h-14 px-5">
+    <div className="bg-white border-b border-[#e5e5e5]">
+      <div className="flex items-center justify-between h-14 px-4 sm:px-6">
         <Link
           to="/"
-          className="text-lg font-semibold text-[#7c86d6] whitespace-nowrap mr-6 no-underline"
+          className="flex items-center gap-2 text-[15px] font-semibold text-[#1f2329] whitespace-nowrap no-underline"
         >
+          <span className="w-6 h-6 rounded-md bg-[#4d6bfe] flex items-center justify-center text-white text-[13px] font-bold">
+            知
+          </span>
           校园协作知识库
         </Link>
-        <Menu
-          mode="horizontal"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          className="flex-1 border-none"
-        />
-        <div className="flex items-center gap-3 ml-4">
-          {userInfo ? (
-            <>
-              <span className="text-sm text-[#606266]">
-                {userInfo.realName || userInfo.username}
-              </span>
-              <Button type="link" danger onClick={handleLogout}>
-                退出登录
-              </Button>
-            </>
-          ) : (
-            <Button type="link" onClick={() => navigate('/login')}>
-              登录
-            </Button>
+
+        <div className="flex items-center gap-3">
+          {userInfo && (
+            <span className="text-[13px] text-[#666]">
+              {userInfo.realName || userInfo.username}
+            </span>
           )}
+          <Dropdown
+            trigger={['click']}
+            menu={{ items: menuItems, onClick: onMenuClick }}
+            placement="bottomRight"
+          >
+            <Button
+              type="text"
+              icon={<Settings size={18} />}
+              className="!text-[#666] hover:!text-[#1f2329]"
+            />
+          </Dropdown>
         </div>
       </div>
     </div>

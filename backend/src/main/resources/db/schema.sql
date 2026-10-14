@@ -47,6 +47,7 @@ CREATE TABLE `knowledge_entry` (
   `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
   `title`         VARCHAR(200) NOT NULL                COMMENT '标题',
   `content`       TEXT         NOT NULL                COMMENT '正文内容',
+  `attachment`    JSON                  DEFAULT NULL   COMMENT '附件列表（JSON：name/url/type/size）',
   `category_id`   BIGINT                DEFAULT NULL   COMMENT '所属分类ID（→ category.id）',
   `source_type`   TINYINT      NOT NULL DEFAULT 0      COMMENT '来源：0=学生经验，1=官方',
   `submitter_id`  BIGINT                DEFAULT NULL   COMMENT '提交者ID（→ user.id）',
@@ -70,6 +71,7 @@ DROP TABLE IF EXISTS `qa_record`;
 CREATE TABLE `qa_record` (
   `id`               BIGINT   NOT NULL AUTO_INCREMENT COMMENT '主键',
   `question`         TEXT     NOT NULL                COMMENT '用户问题',
+  `image_url`        VARCHAR(512)       DEFAULT NULL  COMMENT '提问图片地址',
   `answer`           TEXT     NOT NULL                COMMENT 'AI 回答',
   `sources`          JSON              DEFAULT NULL   COMMENT '引用来源列表',
   `user_id`          BIGINT            DEFAULT NULL   COMMENT '提问者ID（→ user.id）',

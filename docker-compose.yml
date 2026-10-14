@@ -71,6 +71,9 @@ services:
       LLM_API_URL: ${LLM_API_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions}
       LLM_API_KEY: ${LLM_API_KEY:-your_api_key}
       LLM_MODEL: ${LLM_MODEL:-qwen-plus}
+      VISION_API_URL: ${VISION_API_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions}
+      VISION_API_KEY: ${VISION_API_KEY:-}
+      VISION_MODEL: ${VISION_MODEL:-qwen-vl-plus}
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-key-please-32chars}
     ports:
       - "8080:8080"

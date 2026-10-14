@@ -35,8 +35,9 @@ public interface RagService {
     /**
      * 拼接 Prompt 调用大模型生成回答
      * history：多轮对话历史，每条为 {role: user/assistant, content: 内容}，按时间升序
+     * imageUrl：可选，为图片地址时启用视觉模型做多模态理解
      */
-    String answer(String question, List<SourceRefVO> sources, List<Map<String, String>> history);
+    String answer(String question, List<SourceRefVO> sources, List<Map<String, String>> history, String imageUrl);
 
     /**
      * 理解用户问题意图，生成简洁会话标题（失败时返回 null 交由调用方回退）

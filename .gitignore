@@ -6,6 +6,9 @@ mysql-data/
 chroma-data/
 models/
 
+# 上传的文件
+uploads/
+
 # 后端构建产物
 backend/target/
 

@@ -1,5 +1,5 @@
 import request from './request'
-import type { AdminUser, Contributor, Correction, Entry, PageResult } from '@/types'
+import type { AdminUser, Attachment, Contributor, Correction, Entry, PageResult } from '@/types'
 
 // ========== 知识条目（管理员端） ==========
 
@@ -18,6 +18,7 @@ export function createOfficialEntry(data: {
   title: string
   categoryId: number | null
   content: string
+  attachments?: Attachment[]
 }): Promise<unknown> {
   return request.post('/admin/entries/official', data)
 }

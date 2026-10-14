@@ -1,8 +1,13 @@
 import request from './request'
-import type { Entry, PageResult } from '@/types'
+import type { Attachment, Entry, PageResult } from '@/types'
 
 // 提交知识条目：POST /entries
-export function submitEntry(data: { title: string; categoryId: number | null; content: string }): Promise<unknown> {
+export function submitEntry(data: {
+  title: string
+  categoryId: number | null
+  content: string
+  attachments?: Attachment[]
+}): Promise<unknown> {
   return request.post('/entries', data)
 }
 
